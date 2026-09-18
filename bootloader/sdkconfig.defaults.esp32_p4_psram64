@@ -1,0 +1,4 @@
+# Same pins as Function EV; PSRAM size is probed at runtime.
+# Keep this file so `idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.esp32_p4_psram64"`
+# documents a 64 MB board.
+CONFIG_SDBOOT_BOARD_PSRAM64=y

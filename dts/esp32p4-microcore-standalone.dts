@@ -1,0 +1,31 @@
+/dts-v1/;
+
+/*
+ * Standalone DTB for the SD card image. The loader patches:
+ *   memory.reg size 0x04000000  -> detected PSRAM size
+ *   linux,initrd-start          -> 0x11111111 placeholder
+ *   linux,initrd-end            -> 0x22222222 placeholder
+ *   bootargs                    -> loader.cfg append (must fit this string)
+ *
+ * The Buildroot kernel build should replace this with
+ * dts/esp32p4-microcore.dts compiled against the P4 kernel tree.
+ */
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	model = "ESP32-P4 MicroCore";
+	compatible = "espressif,esp32p4-microcore", "espressif,esp32p4";
+
+	memory@48000000 {
+		device_type = "memory";
+		reg = <0x48000000 0x04000000>;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		linux,initrd-start = <0x11111111>;
+		linux,initrd-end = <0x22222222>;
+		/* padded so the loader can overwrite in place */
+		bootargs = "console=ttyS0,115200n8 earlycon rdinit=/init loglevel=4                                                                ";
+	};
+};
