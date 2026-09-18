@@ -10,6 +10,8 @@
 #include "sdboot/layout.h"
 #include "sdboot/fdtpatch.h"
 #include "sdboot/endian.h"
+#include "sdboot/gpt.h"
+#include "sdboot/part.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,6 +71,23 @@ static void test_cfg(void)
     CHECK(cfg.timeout_ds == 20, "timeout=%u", cfg.timeout_ds);
 }
 
+static void test_isolinux(void)
+{
+    sdboot_cfg_t cfg;
+    const char *txt =
+        "DEFAULT microcore\n"
+        "TIMEOUT 20\n"
+        "LABEL microcore\n"
+        "KERNEL /boot/vmlinuz\n"
+        "INITRD /boot/core.gz\n"
+        "APPEND console=ttyS0,115200n8 rdinit=/init\n";
+
+    CHECK(sdboot_cfg_parse(txt, &cfg) == 0, "isolinux parse");
+    CHECK(strcmp(cfg.kernel, "/boot/vmlinuz") == 0, "isolinux kernel");
+    CHECK(strcmp(cfg.initrd, "/boot/core.gz") == 0, "isolinux initrd");
+    CHECK(strstr(cfg.append, "rdinit=/init") != NULL, "isolinux append");
+}
+
 static void test_detect(void)
 {
     uint8_t sec0[512];
@@ -126,6 +145,66 @@ static void test_layout(void)
     in.kernel_size = 8u * 1024u * 1024u;
     in.initrd_size = 8u * 1024u * 1024u;
     CHECK(sdboot_layout(&in, &out) == SDBOOT_LAYOUT_ERR_NOSPC, "too small");
+}
+
+typedef struct {
+    uint8_t *buf;
+    uint32_t nsec;
+} mem_disk_t;
+
+static int mem_read(void *ctx, uint32_t lba, void *buf)
+{
+    mem_disk_t *d = (mem_disk_t *)ctx;
+    if (lba >= d->nsec)
+        return -1;
+    memcpy(buf, d->buf + (size_t)lba * 512u, 512);
+    return 0;
+}
+
+static void test_gpt(void)
+{
+    uint8_t disk[4 * 512];
+    mem_disk_t md;
+    sdboot_gpt_t gpt;
+    uint32_t lba = 0;
+    enum sdboot_media media = SDBOOT_MEDIA_UNKNOWN;
+    static const uint8_t ms_basic[16] = {
+        0xa2, 0xa0, 0xd0, 0xeb, 0xe5, 0xb9, 0x33, 0x44,
+        0x87, 0xc9, 0x68, 0xb6, 0xb7, 0x26, 0x99, 0xc7
+    };
+
+    memset(disk, 0, sizeof(disk));
+    /* Protective MBR */
+    disk[510] = 0x55;
+    disk[511] = 0xAA;
+    disk[0x1BE + 4] = 0xEE;
+    disk[0x1BE + 8] = 1; /* start LBA 1 */
+    disk[0x1BE + 12] = 0xFF;
+    disk[0x1BE + 13] = 0xFF;
+
+    /* GPT header at LBA 1 */
+    memcpy(disk + 512, "EFI PART", 8);
+    disk[512 + 72] = 2; /* entry LBA */
+    disk[512 + 80] = 4; /* 4 entries */
+    disk[512 + 84] = 128;
+
+    /* Entry 0 at LBA 2: Microsoft Basic Data starting at 2048 */
+    memcpy(disk + 1024, ms_basic, 16);
+    disk[1024 + 32] = 0x00;
+    disk[1024 + 33] = 0x08; /* start 2048 */
+    disk[1024 + 40] = 0xFF;
+    disk[1024 + 41] = 0xFF; /* end */
+
+    md.buf = disk;
+    md.nsec = 4;
+    CHECK(sdboot_detect_media(disk, NULL) == SDBOOT_MEDIA_GPT,
+          "gpt media (protective MBR)");
+    CHECK(sdboot_gpt_parse(mem_read, &md, &gpt) == 0, "gpt parse");
+    CHECK(gpt.count >= 1, "gpt count=%d", gpt.count);
+    CHECK(sdboot_gpt_type_is_fat(gpt.parts[0].type_guid), "gpt fat guid");
+    CHECK(gpt.parts[0].start_lba == 2048, "gpt start=%u", gpt.parts[0].start_lba);
+    CHECK(sdboot_find_fat_lba(mem_read, &md, &lba, &media) == 0, "find gpt fat");
+    CHECK(lba == 2048, "found lba=%u", lba);
 }
 
 static void test_fdt(const char *dtb_path)
@@ -224,6 +303,43 @@ static void test_fat_image(const char *img)
     CHECK(sdboot_fat_stat(&fs, "/tce/onboot.lst", &st) == 0, "onboot.lst");
     CHECK(sdboot_fat_stat(&fs, "/home/hello.txt", &st) == 0, "persist hello");
 
+    n = sdboot_fat_read(&fs, "/boot/LOADER.CFG", 0, buf, sizeof(buf) - 1);
+    CHECK(n > 0, "8.3 LOADER.CFG alias");
+
+    {
+        uint32_t fat_lba = 0;
+        enum sdboot_media media = SDBOOT_MEDIA_UNKNOWN;
+        uint8_t *kbuf;
+        sdboot_layout_in_t lin;
+        sdboot_layout_out_t layout;
+        sdboot_fat_stat_t kst2;
+        memset(&kst2, 0, sizeof(kst2));
+
+        CHECK(sdboot_find_fat_lba(file_read, &disk, &fat_lba, &media) == 0, "find fat lba");
+        CHECK(fat_lba == mbr.parts[0].start_lba, "fat lba matches mbr");
+        CHECK(media == SDBOOT_MEDIA_MBR, "media mbr");
+
+        CHECK(sdboot_fat_stat(&fs, "/boot/vmlinuz", &kst2) == 0, "stat vmlinuz");
+        kbuf = malloc(kst2.size ? kst2.size : 1);
+        CHECK(kbuf != NULL, "malloc kernel");
+        if (kbuf) {
+            n = sdboot_fat_read(&fs, "/boot/vmlinuz", 0, kbuf, kst2.size);
+            CHECK(n == (int)kst2.size, "read full vmlinuz");
+            CHECK(sdboot_detect_kernel(kbuf, (size_t)n) == SDBOOT_KERN_RISCV, "full image riscv");
+            free(kbuf);
+        }
+
+        memset(&lin, 0, sizeof(lin));
+        lin.psram_base = SDBOOT_PSRAM_BASE;
+        lin.psram_size = 32u * 1024u * 1024u;
+        lin.kernel_size = kst2.size;
+        lin.dtb_size = 4096;
+        lin.initrd_size = 4096;
+        lin.min_free = SDBOOT_MIN_FREE_RAM;
+        CHECK(sdboot_layout(&lin, &layout) == 0, "32MB layout of placeholders");
+        CHECK(layout.kernel_pa == SDBOOT_PSRAM_BASE, "sim kernel at psram base");
+    }
+
     fclose(f);
 }
 
@@ -241,8 +357,10 @@ int main(int argc, char **argv)
     }
 
     test_cfg();
+    test_isolinux();
     test_detect();
     test_layout();
+    test_gpt();
     if (dtb)
         test_fdt(dtb);
     else

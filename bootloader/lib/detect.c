@@ -15,8 +15,16 @@ enum sdboot_media sdboot_detect_media(const uint8_t sector0[512],
     if (!sector0)
         return SDBOOT_MEDIA_UNKNOWN;
 
-    if (sdboot_mbr_parse(sector0, &mbr) == 0 && mbr.count > 0)
+    if (sdboot_mbr_parse(sector0, &mbr) == 0 && mbr.count > 0) {
+        int i, only_protective = 1;
+        for (i = 0; i < mbr.count; i++) {
+            if (mbr.parts[i].type != SDBOOT_PART_GPT_PROTECTIVE)
+                only_protective = 0;
+        }
+        if (only_protective)
+            return SDBOOT_MEDIA_GPT;
         return SDBOOT_MEDIA_MBR;
+    }
 
     /* Superfloppy: FAT BPB in sector 0. */
     if (sector0[510] == 0x55 && sector0[511] == 0xAA) {

@@ -1,4 +1,4 @@
-.PHONY: all test img loader clean
+.PHONY: all test test-asan img loader clean
 
 PYTHON ?= python3
 IMG ?= MicroCore-ESP32P4.img
@@ -16,6 +16,12 @@ img $(IMG): dts/esp32p4-microcore-standalone.dts image/mkimg.py
 	$(PYTHON) image/mkimg.py -o $(IMG)
 
 test: tests/test_sdboot $(DTB) $(IMG)
+	./tests/test_sdboot $(DTB) $(IMG)
+	$(PYTHON) tests/test_image.py $(IMG)
+
+test-asan: $(DTB) $(IMG)
+	$(MAKE) -C tests clean
+	$(MAKE) -C tests CC=gcc SANITIZE="-fsanitize=address,undefined" CFLAGS="-std=c11 -Wall -Wextra -Werror -O1 -g -fno-omit-frame-pointer" test_sdboot
 	./tests/test_sdboot $(DTB) $(IMG)
 
 loader:

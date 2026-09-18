@@ -132,7 +132,7 @@ int sdboot_cfg_parse(const char *text, sdboot_cfg_t *out)
                 const char *comma = memchr(val, ',', rest);
                 size_t n = comma ? (size_t)(comma - val) : rest;
                 trim_copy(dst->initrd, sizeof(dst->initrd), val, n);
-            }             else if (keyeq(key, keyn, "fdt") || keyeq(key, keyn, "devicetree") ||
+            } else if (keyeq(key, keyn, "fdt") || keyeq(key, keyn, "devicetree") ||
                        keyeq(key, keyn, "dtb"))
                 trim_copy(dst->fdt, sizeof(dst->fdt), val, rest);
             else if (keyeq(key, keyn, "append"))

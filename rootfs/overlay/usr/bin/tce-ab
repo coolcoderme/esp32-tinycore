@@ -1,0 +1,23 @@
+#!/bin/sh
+# TinyCore-style local extension browser: list .tcz on the SD card.
+set -eu
+TCE=${TCE:-/mnt/sd/tce}
+echo "local extensions in $TCE"
+if [ ! -d "$TCE" ]; then
+	echo "(no tce directory — mount the FAT volume at /mnt/sd first)"
+	exit 0
+fi
+found=0
+for f in "$TCE"/*.tcz; do
+	[ -e "$f" ] || continue
+	found=1
+	sz=$(wc -c < "$f" 2>/dev/null || echo 0)
+	echo "  $(basename "$f")  ${sz} bytes   tce-load -i $(basename "$f")"
+done
+if [ "$found" -eq 0 ]; then
+	echo "(none yet — copy RV32 .tcz files here from a PC)"
+fi
+if [ -f "$TCE/onboot.lst" ]; then
+	echo "onboot.lst:"
+	cat "$TCE/onboot.lst"
+fi

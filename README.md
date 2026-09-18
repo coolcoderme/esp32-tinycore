@@ -15,7 +15,8 @@ to the chip once with `esptool`.
 ## Quick start
 
 ```sh
-make test          # host tests: FAT/MBR/cfg/DTB + a 256 MiB .img
+make test          # host tests: FAT/MBR/GPT/cfg/DTB + a 256 MiB .img
+make test-asan     # same under ASan/UBSan
 make img           # MicroCore-ESP32P4.img for Rufus/Etcher
 ```
 
@@ -37,13 +38,14 @@ Full steps: [docs/FLASHING.md](docs/FLASHING.md). Architecture:
 
 | Path | Role |
 |---|---|
-| `bootloader/` | ESP-IDF linux-loader (PSRAM, SDMMC, FAT, jump) |
-| `bootloader/lib/` | Portable MBR/FAT/cfg/DTB/layout (host-tested) |
-| `image/mkimg.py` | Builds the MBR+FAT32 `.img` |
+| `bootloader/` | ESP-IDF linux-loader (PSRAM, SDMMC, FAT/GPT, jump) |
+| `bootloader/lib/` | Portable MBR/GPT/FAT/cfg/DTB/layout (host-tested) |
+| `image/mkimg.py` | Builds the MBR+FAT32 `.img` (`image/mkimg.sh` wraps it) |
 | `dts/` | Device trees (standalone + kernel) |
-| `rootfs/overlay/` | MicroCore `/init`, `tce-load`, persist `/home` |
+| `rootfs/overlay/` | MicroCore `/init`, `tce-load` / `tce-ab`, persist `/home` |
 | `linux/` | Kernel config fragment + how to use a P4 kernel port |
-| `tests/` | Host unit tests |
+| `tests/` | Host unit tests + image checks |
+| `tools/` | `flash-p4.sh`, `console.sh`, `expand-fat.sh` |
 
 `make img` without a kernel build packs a **placeholder** RISC-V Image
 and a tiny `core.gz`. Replace them with a real Buildroot `Image` +

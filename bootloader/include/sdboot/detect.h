@@ -9,10 +9,11 @@ extern "C" {
 #endif
 
 enum sdboot_media {
-    SDBOOT_MEDIA_UNKNOWN    = 0,
-    SDBOOT_MEDIA_MBR        = 1,
+    SDBOOT_MEDIA_UNKNOWN     = 0,
+    SDBOOT_MEDIA_MBR         = 1,
     SDBOOT_MEDIA_SUPERFLOPPY = 2,
-    SDBOOT_MEDIA_ISO9660    = 3,
+    SDBOOT_MEDIA_ISO9660     = 3,
+    SDBOOT_MEDIA_GPT         = 4,
 };
 
 enum sdboot_kernel {

@@ -13,6 +13,7 @@ extern "C" {
 #define SDBOOT_PART_FAT32     0x0B
 #define SDBOOT_PART_FAT32_LBA 0x0C
 #define SDBOOT_PART_FAT16_LBA 0x0E
+#define SDBOOT_PART_GPT_PROTECTIVE 0xEE
 
 typedef struct {
     uint8_t  status;

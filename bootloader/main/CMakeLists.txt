@@ -5,6 +5,8 @@ idf_component_register(
         "handoff.c"
         "../boards/board.c"
         "../lib/mbr.c"
+        "../lib/gpt.c"
+        "../lib/part.c"
         "../lib/fat.c"
         "../lib/cfg.c"
         "../lib/detect.c"

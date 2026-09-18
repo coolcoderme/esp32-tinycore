@@ -16,6 +16,12 @@ static inline uint32_t sdboot_le32(const void *p)
            ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24);
 }
 
+static inline uint64_t sdboot_le64(const void *p)
+{
+    const uint8_t *b = (const uint8_t *)p;
+    return (uint64_t)sdboot_le32(b) | ((uint64_t)sdboot_le32(b + 4) << 32);
+}
+
 static inline uint32_t sdboot_be32(const void *p)
 {
     const uint8_t *b = (const uint8_t *)p;

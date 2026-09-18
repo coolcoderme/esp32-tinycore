@@ -1,12 +1,13 @@
 # Plan: ESP32-P4 bootloader for MicroCore Linux on SD
 
-**Implementation status:** the repository now contains the linux-loader
-ESP-IDF project, portable FAT/MBR/cfg/DTB/layout libraries with host
-tests (`make test`), a Rufus/Etcher FAT32 image builder
-(`python3 image/mkimg.py`), MicroCore `/init` + `tce-load` overlay, and
-device trees. A real RV32 kernel still needs an ESP32-P4 Linux port
-(see `linux/README.md`); `mkimg.py` will pack a placeholder Image until
-then.
+**Implementation status:** Phases 0–4 of this plan are in the tree: the
+linux-loader ESP-IDF project, portable MBR/GPT/FAT/cfg/DTB/layout
+libraries with host tests (`make test`, ASan via `make test-asan`), a
+Rufus/Etcher FAT32 image builder (`image/mkimg.py` / `image/mkimg.sh`),
+MicroCore `/init` + `tce-load` / `tce-ab` overlay, device trees, and
+CI. A real RV32 kernel still needs an ESP32-P4 Linux port (see
+`linux/README.md`); `mkimg.py` packs a placeholder Image until then.
+Phase 5 polish (ISO9660 reader, 64 MB-only image budget) is optional.
 
 This document is the implementation plan for `esp32-tinycore`. It is
 intentionally concrete: what lives in flash, what lives on the SD card,

@@ -359,28 +359,33 @@ static int scan_dir(sdboot_fat_t *fs, uint32_t dir_cluster, const char *want,
             continue;
         }
 
-        memset(&st, 0, sizeof(st));
-        if (have_lfn && lfn[0]) {
-            size_t n = strlen(lfn);
-            if (n > SDBOOT_FAT_NAME_MAX)
-                n = SDBOOT_FAT_NAME_MAX;
-            memcpy(st.name, lfn, n);
-            st.name[n] = '\0';
-        } else {
-            sfn_to_name(ent, st.name, sizeof(st.name));
-        }
-        st.size = sdboot_le32(ent + 28);
-        st.first_cluster = ent_cluster(ent);
-        st.is_dir = (attr & FAT_ATTR_DIR) != 0;
-        have_lfn = 0;
-        lfn[0] = '\0';
+        {
+            char sfn[13];
 
-        if (cb)
-            cb(user, &st);
-        if (want && name_ieq(st.name, want)) {
-            if (found)
-                *found = st;
-            return 1;
+            memset(&st, 0, sizeof(st));
+            sfn_to_name(ent, sfn, sizeof(sfn));
+            if (have_lfn && lfn[0]) {
+                size_t n = strlen(lfn);
+                if (n > SDBOOT_FAT_NAME_MAX)
+                    n = SDBOOT_FAT_NAME_MAX;
+                memcpy(st.name, lfn, n);
+                st.name[n] = '\0';
+            } else {
+                memcpy(st.name, sfn, sizeof(sfn));
+            }
+            st.size = sdboot_le32(ent + 28);
+            st.first_cluster = ent_cluster(ent);
+            st.is_dir = (attr & FAT_ATTR_DIR) != 0;
+            have_lfn = 0;
+            lfn[0] = '\0';
+
+            if (cb)
+                cb(user, &st);
+            if (want && (name_ieq(st.name, want) || name_ieq(sfn, want))) {
+                if (found)
+                    *found = st;
+                return 1;
+            }
         }
     }
     return 0;

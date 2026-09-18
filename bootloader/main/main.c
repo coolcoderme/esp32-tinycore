@@ -15,6 +15,7 @@
 #include "handoff.h"
 
 #include "sdboot/mbr.h"
+#include "sdboot/part.h"
 #include "sdboot/fat.h"
 #include "sdboot/cfg.h"
 #include "sdboot/detect.h"
@@ -153,23 +154,23 @@ void app_main(void)
     media = sdboot_detect_media(sec0, sec16);
     if (media == SDBOOT_MEDIA_ISO9660)
         recovery_hang(X86_ISO_MSG);
-    if (media == SDBOOT_MEDIA_UNKNOWN)
-        recovery_hang("no MBR/FAT on SD — flash MicroCore-ESP32P4-*.img with Rufus/Etcher");
 
-    if (media == SDBOOT_MEDIA_MBR) {
-        if (sdboot_mbr_parse(sec0, &mbr) != 0 || mbr.count == 0)
-            recovery_hang("MBR parse failed");
-        part_lba = 0;
-        for (i = 0; i < mbr.count; i++) {
-            ESP_LOGI(TAG, "part %d type=%02x start=%" PRIu32 " sectors=%" PRIu32 "%s",
-                     i, mbr.parts[i].type, mbr.parts[i].start_lba, mbr.parts[i].sectors,
-                     (mbr.parts[i].status & 0x80) ? " boot" : "");
-            if (part_lba == 0 && sdboot_part_is_fat(mbr.parts[i].type))
-                part_lba = mbr.parts[i].start_lba;
+    if (media == SDBOOT_MEDIA_MBR || media == SDBOOT_MEDIA_GPT) {
+        if (sdboot_mbr_parse(sec0, &mbr) == 0) {
+            for (i = 0; i < mbr.count; i++) {
+                ESP_LOGI(TAG, "part %d type=%02x start=%" PRIu32 " sectors=%" PRIu32 "%s",
+                         i, mbr.parts[i].type, mbr.parts[i].start_lba, mbr.parts[i].sectors,
+                         (mbr.parts[i].status & 0x80) ? " boot" : "");
+            }
         }
-        if (part_lba == 0)
-            recovery_hang("no FAT partition in MBR");
     }
+
+    rc = sdboot_find_fat_lba(sdboot_sdmmc_read, card, &part_lba, &media);
+    if (rc == SDBOOT_PART_ERR_ISO)
+        recovery_hang(X86_ISO_MSG);
+    if (rc != SDBOOT_PART_OK)
+        recovery_hang("no MBR/GPT/FAT on SD — flash MicroCore-ESP32P4-*.img with Rufus/Etcher");
+    ESP_LOGI(TAG, "FAT volume at LBA %" PRIu32, part_lba);
 
     rc = sdboot_fat_mount(&fs, sdboot_sdmmc_read, card, part_lba);
     if (rc)

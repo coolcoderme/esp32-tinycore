@@ -79,6 +79,13 @@ Windows will see a drive named **MICROCORE**. You can drop files in
 `home\` (persistent extra storage) or `tce\` (`.tcz` extensions listed
 in `tce\onboot.lst`). Do not delete `boot\`.
 
+If the card is larger than the 256 MiB image, leftover space is
+unpartitioned. Expand with Windows Disk Management or:
+
+```sh
+tools/expand-fat.sh /dev/sdX
+```
+
 ## 3. Boot
 
 Insert the card, reset the P4. Serial console:
@@ -89,6 +96,8 @@ Insert the card, reset the P4. Serial console:
 
 ```sh
 tio -b 115200 /dev/ttyUSB0
+# or
+tools/console.sh /dev/ttyUSB0
 ```
 
 You should see `=== ESP32-P4 linux-loader (SD MicroCore) ===`, PSRAM
