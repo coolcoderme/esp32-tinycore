@@ -1,0 +1,65 @@
+#!/bin/sh
+# MicroCore-style /init for ESP32-P4. Lives in core.gz (rdinit=/init).
+set -eu
+
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export HOME=/home/tc
+export TERM=vt102
+
+mkdir -p /proc /sys /dev /tmp /mnt/sd /home/tc /opt /tce /run
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
+	mount -t tmpfs tmpfs /dev
+	mdev -s
+}
+mount -t tmpfs tmpfs /tmp
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null || true
+
+echo "ESP32-P4 MicroCore"
+
+# Remount the FAT volume the loader booted from (extra storage + tce).
+mounted=0
+for cand in /dev/mmcblk0p1 /dev/mmcblk0 /dev/sda1 /dev/sda; do
+	if [ -b "$cand" ] && mount -t vfat -o rw,utf8,noatime "$cand" /mnt/sd 2>/dev/null; then
+		echo "mounted $cand on /mnt/sd"
+		mounted=1
+		break
+	fi
+done
+if [ "$mounted" -eq 0 ]; then
+	echo "warning: could not mount SD (FAT) on /mnt/sd"
+fi
+
+if [ -d /mnt/sd/home ]; then
+	mkdir -p /home
+	if mount -o bind /mnt/sd/home /home 2>/dev/null; then
+		:
+	else
+		cp -a /mnt/sd/home/. /home/ 2>/dev/null || true
+	fi
+fi
+if [ -d /mnt/sd/opt ]; then
+	if mount -o bind /mnt/sd/opt /opt 2>/dev/null; then
+		:
+	else
+		cp -a /mnt/sd/opt/. /opt/ 2>/dev/null || true
+	fi
+fi
+
+if [ -x /usr/bin/tce-setup ]; then
+	/usr/bin/tce-setup || true
+fi
+
+mkdir -p /home/tc
+grep -q '^tc:' /etc/passwd 2>/dev/null || echo 'tc:x:1000:1000:MicroCore user:/home/tc:/bin/sh' >> /etc/passwd
+grep -q '^tc:' /etc/group 2>/dev/null || echo 'tc:x:1000:' >> /etc/group
+chown -R 1000:1000 /home/tc 2>/dev/null || true
+
+echo "login: user tc  (no password)"
+if [ -x /sbin/getty ]; then
+	exec /sbin/getty -n -l /bin/sh 115200 ttyS0
+fi
+exec /bin/sh

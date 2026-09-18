@@ -1,0 +1,44 @@
+#!/bin/sh
+# Load TinyCore-style squashfs extensions from /mnt/sd/tce.
+set -eu
+
+TCE=/mnt/sd/tce
+MNT=/tmp/tcloop
+mkdir -p "$MNT"
+
+if [ ! -d "$TCE" ]; then
+	echo "tce-setup: no $TCE"
+	exit 0
+fi
+
+load_one() {
+	name=$1
+	case "$name" in
+		""|\#*) return 0 ;;
+	esac
+	case "$name" in
+		*.tcz) ;;
+		*) name="${name}.tcz" ;;
+	esac
+	path="$TCE/$name"
+	if [ ! -f "$path" ]; then
+		echo "tce-setup: missing $path"
+		return 1
+	fi
+	base=$(basename "$name" .tcz)
+	dest="$MNT/$base"
+	mkdir -p "$dest"
+	if mount -t squashfs -o loop,ro "$path" "$dest" 2>/dev/null; then
+		cp -a "$dest"/. / 2>/dev/null || true
+		echo "tce-setup: loaded $name"
+	else
+		echo "tce-setup: mount failed for $name"
+		return 1
+	fi
+}
+
+if [ -f "$TCE/onboot.lst" ]; then
+	while IFS= read -r line || [ -n "$line" ]; do
+		load_one "$line" || true
+	done < "$TCE/onboot.lst"
+fi

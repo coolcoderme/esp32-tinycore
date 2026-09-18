@@ -1,0 +1,47 @@
+menu "Linux loader"
+
+    choice SDBOOT_BOARD
+        prompt "Board profile"
+        default SDBOOT_BOARD_FUNCTION_EV
+        config SDBOOT_BOARD_FUNCTION_EV
+            bool "Espressif ESP32-P4-Function-EV-Board"
+        config SDBOOT_BOARD_WAVESHARE
+            bool "Waveshare ESP32-P4 (onboard TF slot)"
+        config SDBOOT_BOARD_PSRAM64
+            bool "ESP32-P4 with 64 MB PSRAM (Function EV pins)"
+    endchoice
+
+    config SDBOOT_SD_SLOT
+        int "SDMMC host slot"
+        default 0
+        help
+            Slot 0 uses the dedicated IOMUX pins on ESP32-P4.
+
+    config SDBOOT_SD_CLK
+        int "SD CLK GPIO"
+        default 43
+    config SDBOOT_SD_CMD
+        int "SD CMD GPIO"
+        default 44
+    config SDBOOT_SD_D0
+        int "SD D0 GPIO"
+        default 39
+    config SDBOOT_SD_D1
+        int "SD D1 GPIO"
+        default 40
+    config SDBOOT_SD_D2
+        int "SD D2 GPIO"
+        default 41
+    config SDBOOT_SD_D3
+        int "SD D3 GPIO"
+        default 42
+    config SDBOOT_SD_WIDTH
+        int "SD bus width (1 or 4)"
+        default 4
+    config SDBOOT_SD_LDO_CHAN
+        int "On-chip LDO channel for SD VDD (0 = none)"
+        default 4
+        help
+            Function EV Board ties VDDPST_5 / SD_VREF to LDO_VO4 (channel 4).
+
+endmenu
