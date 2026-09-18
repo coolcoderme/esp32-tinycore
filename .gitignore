@@ -1,0 +1,14 @@
+bootloader/build/
+bootloader/sdkconfig
+bootloader/sdkconfig.old
+bootloader/dependencies.lock
+/buildroot/
+*.o
+*.img
+*.dtb
+tests/test_sdboot
+tests/*.dtb
+__pycache__/
+*.pyc
+.idea/
+.vscode/

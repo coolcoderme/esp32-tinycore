@@ -1,0 +1,27 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "sdmmc_io.c"
+        "handoff.c"
+        "../boards/board.c"
+        "../lib/mbr.c"
+        "../lib/gpt.c"
+        "../lib/part.c"
+        "../lib/fat.c"
+        "../lib/cfg.c"
+        "../lib/detect.c"
+        "../lib/layout.c"
+        "../lib/fdtpatch.c"
+    INCLUDE_DIRS
+        "."
+        "../include"
+        "../boards"
+    PRIV_REQUIRES
+        sdmmc
+        esp_psram
+        driver
+        esp_partition
+        hal
+        esp_hw_support
+        sd_pwr_ctrl
+)

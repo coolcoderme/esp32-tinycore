@@ -1,7 +1,7 @@
 # esp32-tinycore
 
 Boot **MicroCore-style Linux** on an **ESP32-P4** from the onboard
-microSD card. The P4's flash holds only a small loader; the kernel,
+microSD card. SPI flash holds only a small loader; the kernel,
 `core.gz`, extensions, and extra storage live on the card.
 
 Flash the SD image with **Rufus** or **BalenaEtcher**. Flash the loader
@@ -9,32 +9,55 @@ to the chip once with `esptool`.
 
 > Official TinyCore/MicroCore ISOs from tinycorelinux.net are **x86**.
 > They will not run on the P4 (RV32). This project ships a RISC-V
-> MicroCore image that uses the same frugal layout (`/boot/vmlinuz`,
-> `/boot/core.gz`, `/tce`) and the same USB-imager workflow.
+> MicroCore image with the same frugal layout (`/boot/vmlinuz`,
+> `/boot/core.gz`, `/tce`).
 
-## Status
+## Quick start
 
-Planning. Architecture, boot chain, SD layout, and implementation
-phases are in [PLAN.md](PLAN.md).
+```sh
+make test          # host tests: FAT/MBR/GPT/cfg/DTB + a 256 MiB .img
+make test-asan     # same under ASan/UBSan
+make img           # MicroCore-ESP32P4.img for Rufus/Etcher
+```
 
-## Intended user flow
+Loader (needs [ESP-IDF 5.5.x](https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32p4/get-started/)):
 
-1. Build or download `linux-loader` and flash it to the ESP32-P4.
-2. Build or download `MicroCore-ESP32P4-*.img`.
-3. Write that image to a microSD card in Rufus (DD / Image mode) or
-   BalenaEtcher.
-4. Insert the card into the board's SD reader and reset.
-5. Serial console at **115200 8N1** on UART0.
+```sh
+. $IDF_PATH/export.sh
+make loader
+tools/flash-p4.sh /dev/ttyUSB0
+```
+
+Then write `MicroCore-ESP32P4.img` to a microSD card (Rufus: **DD /
+Image mode**), insert it, reset. Serial is **115200 8N1** on UART0.
+
+Full steps: [docs/FLASHING.md](docs/FLASHING.md). Architecture:
+[PLAN.md](PLAN.md).
+
+## What is in the tree
+
+| Path | Role |
+|---|---|
+| `bootloader/` | ESP-IDF linux-loader (PSRAM, SDMMC, FAT/GPT, jump) |
+| `bootloader/lib/` | Portable MBR/GPT/FAT/cfg/DTB/layout (host-tested) |
+| `image/mkimg.py` | Builds the MBR+FAT32 `.img` (`image/mkimg.sh` wraps it) |
+| `dts/` | Device trees (standalone + kernel) |
+| `rootfs/overlay/` | MicroCore `/init`, `tce-load` / `tce-ab`, persist `/home` |
+| `linux/` | Kernel config fragment + how to use a P4 kernel port |
+| `tests/` | Host unit tests + image checks |
+| `tools/` | `flash-p4.sh`, `console.sh`, `expand-fat.sh` |
+
+`make img` without a kernel build packs a **placeholder** RISC-V Image
+and a tiny `core.gz`. Replace them with a real Buildroot `Image` +
+`rootfs.cpio.gz` before expecting a login prompt. See
+[linux/README.md](linux/README.md).
 
 ## Hardware
 
-- ESP32-P4 with onboard SDMMC microSD slot
-- 64 MB external PSRAM preferred (32 MB boards work if `core.gz` stays
-  small; the P4 maps at most 64 MB of PSRAM)
-
-Default pin map is the Espressif Function EV Board SD slot (4-bit,
-GPIO 39–44). Other boards are overlays.
+- ESP32-P4 with onboard SDMMC microSD (default: Function EV pins
+  GPIO 39–44, LDO 4)
+- 64 MB external PSRAM preferred (32 MB works if `core.gz` stays small)
 
 ## License
 
-MIT. Kernel patches, when added, will be GPL-2.0 as required.
+MIT. Kernel DTS (`dts/esp32p4-microcore.dts`) is GPL-2.0 as required.

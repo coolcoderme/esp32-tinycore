@@ -1,0 +1,50 @@
+#!/bin/sh
+# tce-load — install a .tcz from /mnt/sd/tce (TinyCore-shaped).
+#   tce-load -i foo.tcz
+set -eu
+
+TCE=/mnt/sd/tce
+MNT=/tmp/tcloop
+opt_install=0
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		-i|--install) opt_install=1; shift ;;
+		-h|--help)
+			echo "usage: tce-load -i <extension.tcz>"
+			exit 0
+			;;
+		--) shift; break ;;
+		-*) echo "tce-load: unknown option $1" >&2; exit 2 ;;
+		*) break ;;
+	esac
+done
+
+if [ "$opt_install" -ne 1 ] || [ $# -lt 1 ]; then
+	echo "usage: tce-load -i <extension.tcz>" >&2
+	exit 2
+fi
+
+name=$1
+case "$name" in
+	*.tcz) ;;
+	*) name="${name}.tcz" ;;
+esac
+path=$name
+if [ ! -f "$path" ]; then
+	path="$TCE/$name"
+fi
+if [ ! -f "$path" ]; then
+	echo "tce-load: $name not found in . or $TCE" >&2
+	exit 1
+fi
+
+base=$(basename "$name" .tcz)
+dest="$MNT/$base"
+mkdir -p "$dest"
+if ! mount -t squashfs -o loop,ro "$path" "$dest"; then
+	echo "tce-load: squashfs mount failed (need loop + squashfs in the kernel)" >&2
+	exit 1
+fi
+cp -a "$dest"/. /
+echo "loaded $name"

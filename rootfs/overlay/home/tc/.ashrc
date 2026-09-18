@@ -1,0 +1,5 @@
+Welcome to ESP32-P4 MicroCore.
+
+SD card is /mnt/sd (FAT). Extra files you copy from a PC show up there.
+Extensions: put .tcz files in /mnt/sd/tce and list them in onboot.lst,
+or run:  tce-load -i foo.tcz
