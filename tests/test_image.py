@@ -44,6 +44,15 @@ def main() -> int:
         if token not in listing_l:
             print(f"missing /boot/{token} in:\n{listing}", file=sys.stderr)
             return 1
+
+    opt = subprocess.check_output(
+        ["mdir", "-a", "-i", f"{img}@@1048576", "::/opt"],
+        env=env,
+        text=True,
+    )
+    if "wifi" not in opt.lower():
+        print(f"missing /opt/wifi.conf.example in:\n{opt}", file=sys.stderr)
+        return 1
     print("image ok:", img, f"({img.stat().st_size} bytes)")
     return 0
 

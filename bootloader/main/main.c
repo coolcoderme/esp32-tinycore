@@ -13,6 +13,7 @@
 #include "board.h"
 #include "sdmmc_io.h"
 #include "handoff.h"
+#include "c6_kick.h"
 
 #include "sdboot/mbr.h"
 #include "sdboot/part.h"
@@ -129,8 +130,9 @@ void app_main(void)
     int have_initrd = 0;
 
     ESP_LOGI(TAG, "=== ESP32-P4 linux-loader (SD MicroCore) ===");
-    ESP_LOGI(TAG, "board: %s  SDMMC CLK=%d CMD=%d D0=%d width=%d LDO=%d",
-             board->name, board->clk, board->cmd, board->d0, board->width, board->ldo_chan);
+    ESP_LOGI(TAG, "board: %s  SDMMC CLK=%d CMD=%d D0=%d width=%d LDO=%d C6_EN=%d",
+             board->name, board->clk, board->cmd, board->d0, board->width, board->ldo_chan,
+             board->c6_reset_gpio);
 
     if (!esp_psram_is_initialized()) {
         recovery_hang("PSRAM not initialized — enable CONFIG_SPIRAM_BOOT_INIT");
@@ -142,6 +144,8 @@ void app_main(void)
         recovery_hang("PSRAM too small (need >= 16 MB)");
     if (psram_size > SDBOOT_PSRAM_WINDOW)
         psram_size = SDBOOT_PSRAM_WINDOW;
+
+    sdboot_c6_kick(board);
 
     if (sdboot_sdmmc_init(board, &card) != ESP_OK)
         recovery_hang("SD card init failed — insert a FAT32 MicroCore image");

@@ -1,0 +1,4 @@
+# Copy to opt/wifi.conf on the MICROCORE volume (Windows can edit this).
+# Do not put " or \ in the SSID or passphrase.
+ssid=YourNetwork
+psk=YourPassphrase

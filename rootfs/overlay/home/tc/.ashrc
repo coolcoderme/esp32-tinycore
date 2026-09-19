@@ -3,3 +3,8 @@ Welcome to ESP32-P4 MicroCore.
 SD card is /mnt/sd (FAT). Extra files you copy from a PC show up there.
 Extensions: put .tcz files in /mnt/sd/tce and list them in onboot.lst,
 or run:  tce-load -i foo.tcz
+
+GPIO:  gpio list | gpio set 5 1 | gpio get 5
+Wi-Fi: copy opt/wifi.conf on the card, or  wifi-setup
+SSH:   copy an ed25519 pubkey to home/tc/.ssh/authorized_keys
+       then  ssh tc@<wlan0-ip>  (key-only)

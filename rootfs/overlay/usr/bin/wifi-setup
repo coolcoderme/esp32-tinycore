@@ -1,0 +1,128 @@
+#!/bin/sh
+# wifi-setup — associate wlan0 (ESP32-C6 ESP-Hosted) and get a DHCP lease.
+#
+#   wifi-setup                  # prompt, or use /mnt/sd/opt/wifi.conf
+#   wifi-setup --auto           # only if wifi.conf exists; never prompt
+#   wifi-setup -- <SSID> <PSK>
+#
+# Conf (Windows-editable, on the FAT volume):
+#   ssid=MyNetwork
+#   psk=secret
+set -eu
+
+CONF=${WIFI_CONF:-/mnt/sd/opt/wifi.conf}
+IFACE=${WIFI_IFACE:-wlan0}
+TMP=/tmp/wpa_supplicant.conf
+PID=/tmp/wpa_supplicant.$IFACE.pid
+SSID=""
+PSK=""
+AUTO=0
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--auto) AUTO=1; shift ;;
+		--) shift; break ;;
+		-h|--help)
+			echo "usage: wifi-setup [--auto] [-- SSID PSK]"
+			exit 0
+			;;
+		*) break ;;
+	esac
+done
+
+if [ $# -ge 2 ]; then
+	SSID=$1
+	PSK=$2
+elif [ -f "$CONF" ]; then
+	# Parse ssid= / psk= lines. No quotes or backslashes.
+	while IFS= read -r line || [ -n "$line" ]; do
+		case "$line" in
+			''|\#*) continue ;;
+			ssid=*) SSID=${line#ssid=} ;;
+			psk=*)  PSK=${line#psk=} ;;
+		esac
+	done < "$CONF"
+fi
+
+if [ -z "$SSID" ]; then
+	if [ "$AUTO" -eq 1 ]; then
+		echo "wifi-setup: no $CONF — skip"
+		exit 0
+	fi
+	printf 'SSID: '
+	read -r SSID
+	printf 'Passphrase: '
+	stty -echo 2>/dev/null || true
+	read -r PSK
+	stty echo 2>/dev/null || true
+	printf '\n'
+fi
+
+case "$SSID$PSK" in
+	*'"'*|*'\'*)
+		echo "wifi-setup: SSID/PSK must not contain \" or \\" >&2
+		exit 1
+		;;
+esac
+
+if [ ! -d /sys/class/net/"$IFACE" ]; then
+	echo "wifi-setup: no $IFACE (need ESP-Hosted + C6 firmware)" >&2
+	exit 1
+fi
+
+umask 077
+printf '%s\n' \
+	'ctrl_interface=/var/run/wpa_supplicant' \
+	'update_config=1' \
+	'network={' \
+	"	ssid=\"${SSID}\"" \
+	"	psk=\"${PSK}\"" \
+	'	key_mgmt=WPA-PSK' \
+	'}' > "$TMP"
+
+ip link set "$IFACE" up || ifconfig "$IFACE" up
+
+if [ -f "$PID" ]; then
+	read -r oldpid < "$PID" || true
+	[ -n "${oldpid:-}" ] && kill "$oldpid" 2>/dev/null || true
+	rm -f "$PID"
+fi
+
+if ! command -v wpa_supplicant >/dev/null 2>&1; then
+	echo "wifi-setup: wpa_supplicant missing (Buildroot BR2_PACKAGE_WPA_SUPPLICANT)" >&2
+	exit 1
+fi
+
+mkdir -p /var/run/wpa_supplicant
+wpa_supplicant -B -P "$PID" -i "$IFACE" -D nl80211 -c "$TMP"
+
+i=0
+state=down
+while [ "$i" -lt 20 ]; do
+	sleep 1
+	if [ -f /sys/class/net/"$IFACE"/operstate ]; then
+		read -r state < /sys/class/net/"$IFACE"/operstate || state=down
+	fi
+	[ "$state" = up ] && break
+	i=$((i + 1))
+done
+echo "wifi-setup: $IFACE operstate=$state after ${i}s"
+
+if [ "$state" != up ]; then
+	echo "wifi-setup: did not associate" >&2
+	exit 1
+fi
+
+udhcpc -i "$IFACE" -n -q -t 20 -A 3 || true
+
+if [ -t 0 ] && [ "$AUTO" -eq 0 ] && [ -d /mnt/sd/opt ]; then
+	printf 'Save to %s for next boot? [y/N] ' "$CONF"
+	read -r yn || yn=
+	case "$yn" in
+		y|Y)
+			printf 'ssid=%s\npsk=%s\n' "$SSID" "$PSK" > "$CONF"
+			echo "wifi-setup: wrote $CONF"
+			;;
+	esac
+fi
+echo "wifi-setup: done. ssh tc@<ip> (key-only, see /home/tc/.ssh)"

@@ -1,0 +1,102 @@
+#!/bin/sh
+# ssh-setup — start dropbear. Host keys persist on the FAT volume;
+# authorized_keys is copied to tmpfs so dropbear accepts FAT's 0777 modes.
+#
+#   ssh-setup           # generate/copy keys, start daemon
+#   ssh-setup --auto    # same; no-op if dropbear is missing
+set -eu
+
+AUTO=0
+SD_KEYS=${SSH_HOST_DIR:-/mnt/sd/opt/dropbear}
+SD_AUTH=${SSH_AUTH_KEYS:-}
+if [ -z "$SD_AUTH" ]; then
+	if [ -f /mnt/sd/home/tc/.ssh/authorized_keys ]; then
+		SD_AUTH=/mnt/sd/home/tc/.ssh/authorized_keys
+	elif [ -f /mnt/sd/home/tc/ssh/authorized_keys ]; then
+		SD_AUTH=/mnt/sd/home/tc/ssh/authorized_keys
+	else
+		SD_AUTH=/mnt/sd/home/tc/.ssh/authorized_keys
+	fi
+fi
+ETC=/etc/dropbear
+TMPAUTH=/tmp/tc-ssh
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--auto) AUTO=1; shift ;;
+		-h|--help)
+			echo "usage: ssh-setup [--auto]"
+			exit 0
+			;;
+		*) break ;;
+	esac
+done
+
+if ! command -v dropbear >/dev/null 2>&1 && [ ! -x /usr/sbin/dropbear ]; then
+	if [ "$AUTO" -eq 1 ]; then
+		echo "ssh-setup: dropbear not installed — skip"
+		exit 0
+	fi
+	echo "ssh-setup: install dropbear (BR2_PACKAGE_DROPBEAR)" >&2
+	exit 1
+fi
+DROPBEAR=$(command -v dropbear 2>/dev/null || echo /usr/sbin/dropbear)
+
+umask 077
+mkdir -p "$ETC" "$TMPAUTH" /var/run/dropbear /home/tc/.ssh
+
+# Persistent host key (ed25519).
+if [ -f "$SD_KEYS/dropbear_ed25519_host_key" ]; then
+	cp "$SD_KEYS/dropbear_ed25519_host_key" "$ETC/dropbear_ed25519_host_key"
+	chmod 600 "$ETC/dropbear_ed25519_host_key"
+	echo "ssh-setup: loaded host key from $SD_KEYS"
+elif command -v dropbearkey >/dev/null 2>&1; then
+	dropbearkey -t ed25519 -f "$ETC/dropbear_ed25519_host_key" >/dev/null
+	if [ -d /mnt/sd/opt ]; then
+		mkdir -p "$SD_KEYS"
+		cp "$ETC/dropbear_ed25519_host_key" "$SD_KEYS/dropbear_ed25519_host_key" 2>/dev/null || true
+		echo "ssh-setup: generated host key, saved to $SD_KEYS"
+	fi
+fi
+
+# authorized_keys: FAT has no Unix modes; dropbear rejects world-writable files.
+if [ -f "$SD_AUTH" ]; then
+	cp "$SD_AUTH" "$TMPAUTH/authorized_keys"
+	chmod 700 "$TMPAUTH"
+	chmod 600 "$TMPAUTH/authorized_keys"
+	mkdir -p /home/tc/.ssh
+	if mountpoint -q /home/tc/.ssh 2>/dev/null; then
+		:
+	else
+		mount -o bind "$TMPAUTH" /home/tc/.ssh 2>/dev/null || {
+			cp "$TMPAUTH/authorized_keys" /home/tc/.ssh/authorized_keys
+			chmod 700 /home/tc/.ssh
+			chmod 600 /home/tc/.ssh/authorized_keys
+		}
+	fi
+	echo "ssh-setup: authorized_keys from $SD_AUTH"
+else
+	echo "ssh-setup: no $SD_AUTH — SSH is key-only, so logins will fail"
+	echo "  copy an ssh-ed25519 public key to home/tc/.ssh/authorized_keys on the card"
+fi
+
+# Key-only (no -B). Prefer standalone; fall back to inetd.
+if [ -f /var/run/dropbear.pid ]; then
+	read -r old < /var/run/dropbear.pid || true
+	[ -n "${old:-}" ] && kill "$old" 2>/dev/null || true
+fi
+
+if "$DROPBEAR" -R -p 22 -P /var/run/dropbear.pid 2>/dev/null; then
+	echo "ssh-setup: dropbear listening on :22"
+	exit 0
+fi
+
+if [ -f /etc/inetd.conf ] && command -v inetd >/dev/null 2>&1; then
+	inetd /etc/inetd.conf
+	echo "ssh-setup: inetd + dropbear -i on :22"
+	exit 0
+fi
+
+echo "ssh-setup: could not start dropbear" >&2
+[ "$AUTO" -eq 1 ] && exit 0
+exit 1

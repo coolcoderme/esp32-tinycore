@@ -3,6 +3,7 @@ idf_component_register(
         "main.c"
         "sdmmc_io.c"
         "handoff.c"
+        "c6_kick.c"
         "../boards/board.c"
         "../lib/mbr.c"
         "../lib/gpt.c"

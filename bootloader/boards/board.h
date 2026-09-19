@@ -17,6 +17,8 @@ typedef struct {
     int width;
     int ldo_chan; /* 0 = no on-chip LDO */
     int internal_pullup;
+    int c6_reset_gpio; /* 0 = no ESP32-C6; Function EV uses GPIO 54 (EN) */
+    int c6_reset_active_high;
 } sdboot_board_t;
 
 const sdboot_board_t *sdboot_board(void);

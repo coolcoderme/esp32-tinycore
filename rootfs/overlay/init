@@ -53,6 +53,13 @@ if [ -x /usr/bin/tce-setup ]; then
 	/usr/bin/tce-setup || true
 fi
 
+if [ -x /usr/bin/wifi-setup ]; then
+	/usr/bin/wifi-setup --auto || echo "wifi-setup: auto connect failed"
+fi
+if [ -x /usr/bin/ssh-setup ]; then
+	/usr/bin/ssh-setup --auto || echo "ssh-setup: auto start failed"
+fi
+
 mkdir -p /home/tc
 grep -q '^tc:' /etc/passwd 2>/dev/null || echo 'tc:x:1000:1000:MicroCore user:/home/tc:/bin/sh' >> /etc/passwd
 grep -q '^tc:' /etc/group 2>/dev/null || echo 'tc:x:1000:' >> /etc/group

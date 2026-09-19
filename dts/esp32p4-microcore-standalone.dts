@@ -28,4 +28,21 @@
 		/* padded so the loader can overwrite in place */
 		bootargs = "console=ttyS0,115200n8 earlycon rdinit=/init loglevel=4                                                                ";
 	};
+
+	/* GPIO banks (kernel DTS has the full binding). */
+	gpio0: gpio@500e0000 {
+		compatible = "espressif,esp32p4-gpio";
+		reg = <0x500e0000 0x1000>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		espressif,bank-id = <0>;
+	};
+
+	gpio1: gpio@500e1000 {
+		compatible = "espressif,esp32p4-gpio";
+		reg = <0x500e0000 0x1000>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		espressif,bank-id = <1>;
+	};
 };
