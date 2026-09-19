@@ -64,14 +64,21 @@ def main() -> int:
             fail(f"{script} missing {token!r}")
 
     dts = (REPO / "dts" / "esp32p4-microcore.dts").read_text(encoding="utf-8")
-    for token in ("espressif,esp32p4-gpio", "C6_EN", "esp-hosted-mcu"):
+    for token in ("espressif,esp32p4-gpio", "C6_EN", "esp-hosted-mcu",
+                  "espressif,esp_sdio", "snps,num-slots"):
         if token not in dts:
             fail(f"DTS missing {token}")
 
     kcfg = (REPO / "linux" / "microcore.config").read_text(encoding="utf-8")
-    for token in ("CONFIG_GPIO_ESP32P4=y", "CONFIG_CFG80211=y", "CONFIG_INET=y"):
+    for token in ("CONFIG_GPIO_ESP32P4=y", "CONFIG_CFG80211=y", "CONFIG_INET=y",
+                  "CONFIG_ESP_HOSTED_NG_SDIO=y"):
         if token not in kcfg:
             fail(f"microcore.config missing {token}")
+
+    full = (REPO / "linux" / "kernel.config").read_text(encoding="utf-8")
+    for token in ("CONFIG_GPIO_ESP32P4=y", "CONFIG_ESP_HOSTED_NG_SDIO=y"):
+        if token not in full:
+            fail(f"kernel.config missing {token}")
 
     print("netconf ok")
     return 0

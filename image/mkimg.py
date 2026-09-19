@@ -97,7 +97,7 @@ label microcore
   kernel /boot/vmlinuz
   initrd /boot/core.gz
   fdt    /boot/esp32p4.dtb
-  append console=ttyS0,115200n8 earlycon rdinit=/init loglevel=4
+  append console=ttyS0,115200n8 earlycon rdinit=/init idle=poll ipv6.disable=1 loglevel=4
 """,
         encoding="utf-8",
     )
@@ -174,6 +174,23 @@ def main() -> int:
     ap.add_argument("--dtb", type=Path, help="compiled esp32p4.dtb")
     ap.add_argument("--dts", type=Path, default=REPO / "dts" / "esp32p4-microcore-standalone.dts")
     args = ap.parse_args()
+
+    br_images = REPO / "buildroot" / "output" / "images"
+    if args.kernel is None and (br_images / "Image").is_file():
+        args.kernel = br_images / "Image"
+        print(f"note: using Buildroot kernel {args.kernel}")
+    if args.initrd is None and (br_images / "rootfs.cpio.gz").is_file():
+        args.initrd = br_images / "rootfs.cpio.gz"
+        print(f"note: using Buildroot initrd {args.initrd}")
+    if args.dtb is None:
+        for cand in (
+            br_images / "esp32p4-microcore.dtb",
+            br_images / "esp32p4.dtb",
+        ):
+            if cand.is_file():
+                args.dtb = cand
+                print(f"note: using Buildroot dtb {args.dtb}")
+                break
 
     if args.size_mb < 64:
         raise SystemExit("size-mb must be >= 64 so the volume is FAT32")

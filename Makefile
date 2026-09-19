@@ -1,4 +1,4 @@
-.PHONY: all test test-asan img loader clean
+.PHONY: all test test-asan img loader clean kernel-src
 
 PYTHON ?= python3
 IMG ?= MicroCore-ESP32P4.img
@@ -19,6 +19,10 @@ test: tests/test_sdboot $(DTB) $(IMG)
 	./tests/test_sdboot $(DTB) $(IMG)
 	$(PYTHON) tests/test_image.py $(IMG)
 	$(PYTHON) tests/test_netconf.py
+	$(PYTHON) tests/test_kernel.py
+
+kernel-src:
+	linux/fetch-linux.sh
 
 test-asan: $(DTB) $(IMG)
 	$(MAKE) -C tests clean

@@ -1,3 +1,13 @@
+This repository is mixed-license:
+
+  - Project code, scripts, and docs (except as noted) — MIT
+  - Device trees under dts/ — GPL-2.0 (Linux DTS requirement)
+  - Kernel patches under linux/patches/ — GPL-2.0
+    (0001–0035 from https://github.com/mrbreaker/why2025-linux;
+     0040–0042 written for this tree)
+  - ESP-Hosted-NG sources inside those patches — GPL-2.0-only
+    (Espressif / esp-hosted-ng)
+
 MIT License
 
 Copyright (c) 2026 coolcoderme

@@ -149,6 +149,7 @@ void app_main(void)
 
     if (sdboot_sdmmc_init(board, &card) != ESP_OK)
         recovery_hang("SD card init failed — insert a FAT32 MicroCore image");
+    sdboot_c6_sdio_mux();
 
     if (sdboot_sdmmc_read(card, 0, sec0) != 0)
         recovery_hang("failed to read sector 0");

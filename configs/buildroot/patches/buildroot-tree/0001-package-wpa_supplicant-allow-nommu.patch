@@ -1,0 +1,20 @@
+package/wpa_supplicant: allow selection on NOMMU targets
+
+Upstream gates the package on BR2_USE_MMU because of a single fork()
+call site (os_exec(), used only for wpa_cli action scripts). That call
+site is converted to vfork()+execv() by the source patch this repo
+applies via BR2_GLOBAL_PATCH_DIR.
+
+Apply to the Buildroot checkout after cloning:
+
+    patch -p1 -d buildroot -i configs/buildroot/patches/buildroot-tree/0001-package-wpa_supplicant-allow-nommu.patch
+
+--- a/package/wpa_supplicant/Config.in
++++ b/package/wpa_supplicant/Config.in
+@@ -1,6 +1,5 @@
+ menuconfig BR2_PACKAGE_WPA_SUPPLICANT
+ 	bool "wpa_supplicant"
+-	depends on BR2_USE_MMU # fork()
+ 	select BR2_PACKAGE_LIBOPENSSL_ENABLE_DES if BR2_PACKAGE_LIBOPENSSL
+ 	select BR2_PACKAGE_LIBOPENSSL_ENABLE_MD4 if BR2_PACKAGE_LIBOPENSSL
+ 	help

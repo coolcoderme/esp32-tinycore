@@ -1,8 +1,9 @@
 # GPIO, Wi-Fi, and SSH
 
-These need a real RV32 kernel with the P4 GPIO driver and ESP-Hosted
-(see [linux/README.md](../linux/README.md)). The SD image and `/init`
-already look for config on the FAT volume.
+These need the P4 kernel in `linux/` (`gpio-esp32p4` + ESP-Hosted-NG
+SDIO; see [linux/README.md](../linux/README.md)). Pack that `Image`
+into the SD card (`make img` picks it up from Buildroot output). The
+SD layout and `/init` already look for config on the FAT volume.
 
 ## GPIO
 
@@ -43,9 +44,9 @@ on **SDIO slot 1**:
 | D0–D3 | 14–17 |
 | EN (reset) | 54 (active-high) |
 
-The linux-loader pulses GPIO 54 before jumping so the C6's factory
-ESP-Hosted slave firmware is running. Linux then needs an ESP-Hosted
-host driver (`wlan0`).
+The linux-loader pulses GPIO 54 and muxes SDIO slot 1 (pins 14–19)
+before jumping so the C6's factory ESP-Hosted slave firmware is
+running. The kernel's ESP-Hosted-NG SDIO driver then binds (`wlan0`).
 
 Put this on the card as `opt/wifi.conf` (Windows can edit it):
 

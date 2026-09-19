@@ -44,13 +44,13 @@ Full steps: [docs/FLASHING.md](docs/FLASHING.md). GPIO / Wi-Fi / SSH:
 | `image/mkimg.py` | Builds the MBR+FAT32 `.img` (`image/mkimg.sh` wraps it) |
 | `dts/` | Device trees (standalone + kernel) |
 | `rootfs/overlay/` | `/init`, `tce-*`, `gpio`, `wifi-setup`, `ssh-setup` |
-| `linux/` | Kernel config fragment + how to use a P4 kernel port |
+| `linux/` | Linux 6.18.35 P4 series (`gpio-esp32p4`, ESP-Hosted SDIO) + `kernel.config` |
 | `tests/` | Host unit tests + image checks |
 | `tools/` | `flash-p4.sh`, `console.sh`, `expand-fat.sh` |
 
-`make img` without a kernel build packs a **placeholder** RISC-V Image
-and a tiny `core.gz`. Replace them with a real Buildroot `Image` +
-`rootfs.cpio.gz` before expecting a login prompt. See
+`make img` packs a **placeholder** RISC-V Image until Buildroot has
+produced `buildroot/output/images/Image`. The kernel series (gpio-esp32p4
++ ESP-Hosted SDIO) is in `linux/patches`. See
 [linux/README.md](linux/README.md).
 
 ## Hardware
@@ -62,4 +62,5 @@ and a tiny `core.gz`. Replace them with a real Buildroot `Image` +
 
 ## License
 
-MIT. Kernel DTS (`dts/esp32p4-microcore.dts`) is GPL-2.0 as required.
+MIT for the loader and image tools. Kernel patches and DTS are
+**GPL-2.0** (see `LICENSE`).

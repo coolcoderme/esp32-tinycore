@@ -32,25 +32,41 @@ idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.waveshare_es
 
 ## Kernel + core.gz
 
-See [linux/README.md](../linux/README.md). After Buildroot:
+`linux/patches` is a real ESP32-P4 6.18.35 series (`gpio-esp32p4`,
+ESP-Hosted-NG SDIO, dual-slot dw_mmc). See [linux/README.md](../linux/README.md).
+
+```sh
+git clone -b 2025.02.15 https://gitlab.com/buildroot.org/buildroot
+patch -p1 -d buildroot -i configs/buildroot/patches/buildroot-tree/0001-package-wpa_supplicant-allow-nommu.patch
+./linux/setup-paths.sh
+cd buildroot
+cp ../configs/buildroot/esp32p4_microcore_defconfig .config
+make olddefconfig
+make -j$(nproc)
+```
+
+Then from the repo root:
 
 ```sh
 python3 image/mkimg.py \
-  --kernel output/images/Image \
-  --initrd output/images/rootfs.cpio.gz \
-  --dtb    output/images/esp32p4-microcore.dtb \
+  --kernel buildroot/output/images/Image \
+  --initrd buildroot/output/images/rootfs.cpio.gz \
+  --dtb    buildroot/output/images/esp32p4-microcore.dtb \
   -o MicroCore-ESP32P4.img
 ```
 
-Placeholder `vmlinuz` / `core.gz` in `make img` prove the SD layout and
-the RISC-V Image magic the loader checks. They will not print a login
-prompt until a P4 kernel is packed.
+`make img` uses those files automatically when they exist. Without a
+Buildroot build it still packs a placeholder Image so host tests can
+check the FAT layout.
+
+Kernel sources only (no userspace): `./linux/fetch-linux.sh`.
 
 ## GPIO / Wi-Fi / SSH
 
-See [PERIPHERALS.md](PERIPHERALS.md). Buildroot defconfig now pulls in
-libgpiod, wpa_supplicant, iw, and dropbear. The loader pulses C6 EN
-(GPIO 54) so ESP-Hosted can come up after the jump.
+See [PERIPHERALS.md](PERIPHERALS.md). The kernel enables `gpio-esp32p4`
+and ESP-Hosted-NG on SDIO slot 1. The loader pulses C6 EN (GPIO 54)
+and muxes pins 14–19. Buildroot pulls in libgpiod, wpa_supplicant, iw,
+and dropbear.
 
 ## Serial
 

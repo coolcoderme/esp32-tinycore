@@ -49,8 +49,8 @@ Build an image:
 python3 image/mkimg.py -o MicroCore-ESP32P4.img
 ```
 
-That packs placeholder `vmlinuz` / `core.gz` if you have not built Linux
-yet. After Buildroot:
+That packs placeholder `vmlinuz` / `core.gz` if you have not built the
+P4 kernel yet (`linux/README.md`). After Buildroot:
 
 ```sh
 python3 image/mkimg.py \
