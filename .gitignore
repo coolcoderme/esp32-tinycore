@@ -3,6 +3,7 @@ bootloader/sdkconfig
 bootloader/sdkconfig.old
 bootloader/dependencies.lock
 /buildroot/
+/linux/src/
 *.o
 *.img
 *.dtb

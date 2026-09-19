@@ -1,0 +1,86 @@
+From: ESP32-P4 MicroCore <microcore@local>
+Date: Sat, 19 Sep 2026 22:00:00 +0000
+Subject: [PATCH] net: wireless: esp-hosted-ng: build SDIO transport
+
+The 0008 series already vendors sdio/esp_sdio.c. Compile it when
+CONFIG_ESP_HOSTED_NG_SDIO=y so Function EV wlan0 can appear.
+
+--- a/drivers/net/wireless/espressif/esp_hosted/Kconfig	2026-09-19 22:16:55.108432463 +0000
++++ b/drivers/net/wireless/espressif/esp_hosted/Kconfig	2026-09-19 22:16:18.180301010 +0000
+@@ -1,18 +1,41 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ config ESP_HOSTED_NG
+-	bool "ESP-Hosted-NG host driver (SPI)"
+-	depends on SPI && CFG80211 && BT
++	bool "ESP-Hosted-NG host driver"
++	depends on CFG80211 && BT && (SPI || MMC)
+ 	help
+-	  Linux host driver for the ESP-Hosted-NG wire protocol over SPI.
+-	  Talks to an ESP32-C6 (or compatible) running esp_hosted_ng slave
+-	  firmware. Provides a cfg80211 netdev (wlan0) and an HCI device.
++	  Linux host driver for the ESP-Hosted-NG wire protocol.
++	  Talks to an ESP32-C6 (or compatible) running esp_hosted_ng
++	  slave firmware over SPI or SDIO. Provides a cfg80211 netdev
++	  (wlan0) and an HCI device.
+ 
+ 	  Source: github.com/espressif/esp-hosted (esp_hosted_ng/host/),
+ 	  release tag 1.0.6.
+ 
++choice
++	prompt "ESP-Hosted-NG transport"
++	depends on ESP_HOSTED_NG
++	default ESP_HOSTED_NG_SDIO if MMC
++	default ESP_HOSTED_NG_SPI if SPI
++
++config ESP_HOSTED_NG_SPI
++	bool "SPI"
++	depends on SPI
++	help
++	  SPI transport (WHY2025 badge and other GPIO-SPI C6 links).
++
++config ESP_HOSTED_NG_SDIO
++	bool "SDIO"
++	depends on MMC
++	help
++	  SDIO transport. Function EV boards ship ESP-Hosted on SDIO
++	  slot 1 (CLK=18 CMD=19 D0-D3=14-17). Matches SDIO IDs and
++	  compatible = "espressif,esp_sdio".
++
++endchoice
++
+ config ESP_HOSTED_SPI_HANDSHAKE_GPIO
+ 	int "GPIO number for ESP-Hosted SPI HANDSHAKE input"
+-	depends on ESP_HOSTED_NG
++	depends on ESP_HOSTED_NG && ESP_HOSTED_NG_SPI
+ 	default 30
+ 	help
+ 	  GPIO line the slave drives high when it is ready for the host
+@@ -21,7 +44,7 @@
+ 
+ config ESP_HOSTED_SPI_DATAREADY_GPIO
+ 	int "GPIO number for ESP-Hosted SPI DATA_READY input"
+-	depends on ESP_HOSTED_NG
++	depends on ESP_HOSTED_NG && ESP_HOSTED_NG_SPI
+ 	default 29
+ 	help
+ 	  GPIO line the slave drives high when it has TX data queued for
+--- a/drivers/net/wireless/espressif/esp_hosted/Makefile	2026-09-19 22:16:55.108432463 +0000
++++ b/drivers/net/wireless/espressif/esp_hosted/Makefile	2026-09-19 22:16:18.220301143 +0000
+@@ -2,11 +2,14 @@
+ obj-$(CONFIG_ESP_HOSTED_NG) += esp32_spi.o
+ 
+ esp32_spi-y := main.o esp_bt.o esp_cmd.o esp_utils.o \
+-		esp_cfg80211.o esp_stats.o esp_debugfs.o esp_log.o \
+-		spi/esp_spi.o
++		esp_cfg80211.o esp_stats.o esp_debugfs.o esp_log.o
++
++esp32_spi-$(CONFIG_ESP_HOSTED_NG_SPI) += spi/esp_spi.o
++esp32_spi-$(CONFIG_ESP_HOSTED_NG_SDIO) += sdio/esp_sdio.o sdio/esp_sdio_api.o
+ 
+ ccflags-y += -I$(srctree)/$(src)/include
+-ccflags-y += -I$(srctree)/$(src)/spi
++ccflags-$(CONFIG_ESP_HOSTED_NG_SPI) += -I$(srctree)/$(src)/spi
++ccflags-$(CONFIG_ESP_HOSTED_NG_SDIO) += -I$(srctree)/$(src)/sdio
+ ccflags-y += -DCONFIG_DEBUG_LOGS
+ 
+ CFLAGS_esp_log.o += -DDEBUG

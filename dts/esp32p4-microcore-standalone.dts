@@ -26,7 +26,7 @@
 		linux,initrd-start = <0x11111111>;
 		linux,initrd-end = <0x22222222>;
 		/* padded so the loader can overwrite in place */
-		bootargs = "console=ttyS0,115200n8 earlycon rdinit=/init loglevel=4                                                                ";
+		bootargs = "console=ttyS0,115200n8 earlycon rdinit=/init idle=poll ipv6.disable=1 loglevel=4                                                                ";
 	};
 
 	/* GPIO banks (kernel DTS has the full binding). */

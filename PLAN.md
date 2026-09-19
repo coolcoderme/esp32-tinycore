@@ -2,10 +2,9 @@
 
 **Implementation status:** Phases 0–4 and 6 are in the tree: linux-loader,
 host-tested parsers, Rufus/Etcher image, MicroCore overlay, GPIO/Wi-Fi/SSH
-userspace (`gpio`, `wifi-setup`, `ssh-setup`, C6 EN kick), and CI.
-A real RV32 kernel (GPIO driver + ESP-Hosted) is still required for
-`wlan0` and `/dev/gpiochip` — see `linux/README.md` and
-`docs/PERIPHERALS.md`.
+userspace, and a real RV32 P4 kernel series (`gpio-esp32p4` + ESP-Hosted-NG
+SDIO) under `linux/patches` + `linux/kernel.config`. Build with Buildroot
+(`linux/README.md`) so `make img` packs `Image` instead of the placeholder.
 
 This document is the implementation plan for `esp32-tinycore`. It is
 intentionally concrete: what lives in flash, what lives on the SD card,

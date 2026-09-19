@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * ESP32-P4 MicroCore — HP core RV32IMAFC, PSRAM at 0x48000000,
- * UART0 @ 0x500CA000 (115200 by the linux-loader), SDMMC slot 0.
+ * ESP32-P4 MicroCore — Function EV (and compatible) boards.
  *
- * Intended to build against an ESP32-P4 kernel tree that provides
- * the espressif CLIC / UART / GPIO / dw_mmc glue (see linux/README.md).
+ * HP core: RV32IMAFC, PSRAM at 0x48000000 (size patched by linux-loader).
+ * UART0:   0x500CA000, 115200 by the linux-loader.
+ * SDMMC:   slot 0 = onboard microSD (GPIO 39-44), slot 1 = ESP32-C6
+ *          ESP-Hosted SDIO (CLK=18 CMD=19 D0-D3=14-17, EN=GPIO54).
  */
 /dts-v1/;
 
@@ -62,7 +63,7 @@
 		stdout-path = "serial0:115200n8";
 		linux,initrd-start = <0x11111111>;
 		linux,initrd-end = <0x22222222>;
-		bootargs = "console=ttyS0,115200n8 earlycon rdinit=/init loglevel=4                                                                ";
+		bootargs = "console=ttyS0,115200n8 earlycon rdinit=/init idle=poll ipv6.disable=1 loglevel=4                                                                ";
 	};
 
 	soc: soc {
@@ -79,10 +80,15 @@
 			#interrupt-cells = <3>;
 		};
 
+		/*
+		 * SYSTIMER: 52-bit counter at 16 MHz (XTAL).
+		 * Level-triggered — target0 is a latched status bit
+		 * (why2025 patch 0022).
+		 */
 		systimer: timer@500e2000 {
 			compatible = "espressif,esp32p4-systimer";
 			reg = <0x500e2000 0x100>;
-			interrupts-extended = <&clic0 17 53 IRQ_TYPE_EDGE_RISING>;
+			interrupts-extended = <&clic0 17 53 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
 		};
 
@@ -94,17 +100,26 @@
 			status = "okay";
 		};
 
+		wdt0: watchdog@500c2000 {
+			compatible = "espressif,esp32p4-wdt";
+			reg = <0x500c2000 0x100>;
+			timeout-sec = <30>;
+		};
+
 		/*
-		 * Two banks share MMIO 0x500E0000 (why2025 gpio-esp32p4).
-		 * Bank 0: GPIO 0–31. Bank 1: GPIO 32–56.
-		 * IRQ is optional; omit until the P4 port maps ETS_GPIO_INTR.
+		 * Two banks share MMIO 0x500E0000 (gpio-esp32p4).
+		 * Bank 0: GPIO 0–31 (IRQ via INTMTX source 74).
+		 * Bank 1: GPIO 32–56.
 		 */
 		gpio0: gpio@500e0000 {
 			compatible = "espressif,esp32p4-gpio";
 			reg = <0x500e0000 0x1000>;
+			espressif,bank-id = <0>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			espressif,bank-id = <0>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupts-extended = <&clic0 21 74 IRQ_TYPE_LEVEL_HIGH>;
 			gpio-line-names =
 				"GPIO0", "GPIO1", "GPIO2", "GPIO3",
 				"GPIO4", "GPIO5", "GPIO6", "GPIO7",
@@ -119,12 +134,12 @@
 			status = "okay";
 		};
 
-		gpio1: gpio@500e1000 {
+		gpio1: gpio-bank1@500e0000 {
 			compatible = "espressif,esp32p4-gpio";
 			reg = <0x500e0000 0x1000>;
+			espressif,bank-id = <1>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			espressif,bank-id = <1>;
 			gpio-line-names =
 				"GPIO32", "GPIO33", "GPIO34",
 				"BOOT_STRAP", "STRAP",
@@ -161,6 +176,13 @@
 			regulator-boot-on;
 		};
 
+		/*
+		 * One DW MMC host, two physical slots:
+		 *   slot 0 — onboard microSD (dedicated IOMUX GPIO 39-44)
+		 *   slot 1 — ESP32-C6 ESP-Hosted (GPIO matrix 14-19)
+		 * linux-loader muxes slot 1 and pulses C6 EN (GPIO 54)
+		 * before the jump.
+		 */
 		sdmmc: mmc@50083000 {
 			compatible = "snps,dw-mshc";
 			reg = <0x50083000 0x1000>;
@@ -173,23 +195,16 @@
 			broken-cd;
 			disable-wp;
 			max-frequency = <25000000>;
+			snps,num-slots = <2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
 
-			/* Slot 0 = onboard microSD (this node). */
-
-			/*
-			 * Slot 1 = ESP32-C6 ESP-Hosted (Wi-Fi / BT).
-			 * Pins are on the GPIO matrix: CLK=18 CMD=19 D0–D3=14–17.
-			 * The linux-loader pulses GPIO 54 (C6 EN) before jump.
-			 * Needs an ESP-Hosted / dw_mmc slot-1 binding from the
-			 * P4 kernel port (see linux/patches/README.md).
-			 */
 			c6_sdio: wifi@1 {
 				reg = <1>;
-				compatible = "espressif,esp-hosted-mcu";
-				reset-gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>; /* GPIO 54 */
+				compatible = "espressif,esp_sdio",
+					     "espressif,esp-hosted-mcu";
+				reset-gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>;
 				status = "okay";
 			};
 		};

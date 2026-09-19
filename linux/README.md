@@ -1,62 +1,61 @@
 # Linux for ESP32-P4 MicroCore
 
-The bootloader in `bootloader/` will jump to any RV32 Image it finds as
-`/boot/vmlinuz` plus `/boot/core.gz`. Producing those files needs a
-kernel that actually runs on the P4.
+This directory is a **real** RV32 NOMMU ESP32-P4 kernel: Linux 6.18.35
+LTS plus the why2025-linux port (`gpio-esp32p4`, CLIC, SYSTIMER, UART,
+dw_mmc) and ESP-Hosted-NG (SDIO transport for Function EV).
 
-## Kernel port
+Vanilla mainline does not bring up P4 UART / CLIC / SDMMC / GPIO.
 
-Vanilla mainline Linux does not yet bring up ESP32-P4 UART / CLIC /
-SDMMC on its own. The working reference is the RV32 NOMMU M-mode port
-in [why2025-linux](https://github.com/mrbreaker/why2025-linux) (Linux
-6.18 LTS + an ESP-IDF boot shim). Use that patch series (or an
-equivalent P4 kernel) as the base, then add our DTS:
+## What you get
 
-- `dts/esp32p4-microcore.dts` — UART0, SYSTIMER, SDMMC slot 0, GPIO
-  banks, C6 ESP-Hosted child node, 64 MB memory placeholders
-- `dts/esp32p4-microcore-standalone.dts` — same placeholders, no
-  kernel includes; this is what `image/mkimg.py` compiles for the SD
-  card until Buildroot produces a real `esp32p4.dtb`
+- `linux/patches/` — apply-ordered series (`0001`–`0035` why2025,
+  `0040`–`0042` MicroCore DTS + SDIO + dual-slot MMC)
+- `linux/kernel.config` — complete defconfig (initrd, VFAT, dw_mmc,
+  `CONFIG_GPIO_ESP32P4=y`, `CONFIG_ESP_HOSTED_NG_SDIO=y`)
+- `linux/microcore.config` — fragment merged on top
+- `dts/esp32p4-microcore.dts` — board DTS compiled into
+  `esp32p4-microcore.dtb`
 
-Copy the full DTS into `arch/riscv/boot/dts/espressif/` of the patched
-kernel and add `dtb-$(CONFIG_SOC_ESP32P4) += esp32p4-microcore.dtb` to
-that directory's Makefile.
-
-## Required config (on top of the P4 port)
-
-See `linux/microcore.config`. In particular:
-
-- `CONFIG_BLK_DEV_INITRD=y` and `CONFIG_RD_GZIP=y` (`core.gz`)
-- VFAT, `dw_mmc`, squashfs, tmpfs, loop (for `.tcz`)
-- `CONFIG_DEVTMPFS=y`
-- `CONFIG_GPIO_ESP32P4=y` (why2025 `gpio-esp32p4` patch) plus
-  `CONFIG_GPIO_SYSFS` / `CONFIG_GPIO_CDEV`
-- `CONFIG_NET` / `CONFIG_INET` / `CONFIG_CFG80211` and the P4 port's
-  ESP-Hosted host driver so `wlan0` appears
-- FLAT or static uClibc/musl NOMMU userland
-
-Wi-Fi and SSH add size. Prefer 64 MB PSRAM; keep `core.gz` small on
-32 MB boards (`mkimg` still enforces a 12 MiB free-RAM floor).
+After Buildroot, `output/images/` has `Image`, `rootfs.cpio.gz`, and
+(if DTS support is on) `esp32p4-microcore.dtb`. `image/post-image.sh`
+packs those into `MicroCore-ESP32P4.img`.
 
 ## Buildroot
 
-`configs/buildroot/esp32p4_microcore_defconfig` wires a Buildroot 2025.02
-LTS tree to this overlay:
-
-```
+```sh
 git clone -b 2025.02.15 https://gitlab.com/buildroot.org/buildroot
+# Allow wpa_supplicant on NOMMU (upstream gates it on fork())
+patch -p1 -d buildroot -i configs/buildroot/patches/buildroot-tree/0001-package-wpa_supplicant-allow-nommu.patch
+
+./linux/setup-paths.sh
 cd buildroot
-make BR2_EXTERNAL=/path/to/esp32-tinycore/configs/buildroot \
-     defconfig  # or copy the defconfig in
+cp ../configs/buildroot/esp32p4_microcore_defconfig .config
+make olddefconfig
+make -j$(nproc)
 ```
 
-Until the P4 kernel tree is pointed at `BR2_LINUX_KERNEL_*`, Buildroot
-will not emit a bootable `Image`. You can still pack a placeholder with
-`python3 image/mkimg.py`.
+`setup-paths.sh` rewrites `@ESP32_TINYCORE@` in the defconfig to this
+repo's absolute path (Buildroot wants absolute `BR2_LINUX_KERNEL_PATCH`
+/ config paths).
 
-After a real kernel build, pack the SD image:
+Or point Buildroot at the series by hand:
 
+```sh
+make BR2_LINUX_KERNEL_PATCH=$PWD/../linux/patches \
+     BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=$PWD/../linux/kernel.config \
+     olddefconfig
 ```
+
+Kernel-only fetch/apply (no Buildroot):
+
+```sh
+./linux/fetch-linux.sh          # downloads 6.18.35 and applies patches
+./linux/fetch-linux.sh --build  # also olddefconfig (needs a riscv32 toolchain)
+```
+
+Pack the SD image from Buildroot output:
+
+```sh
 python3 image/mkimg.py \
     --kernel buildroot/output/images/Image \
     --initrd buildroot/output/images/rootfs.cpio.gz \
@@ -64,5 +63,16 @@ python3 image/mkimg.py \
     -o MicroCore-ESP32P4.img
 ```
 
-Rename / copy so the card sees `vmlinuz` and `core.gz` — `mkimg.py`
-does that rename when copying into the FAT volume.
+`make img` uses those files automatically when they exist; otherwise it
+still packs a placeholder Image so host tests can check the FAT layout.
+
+## Hardware notes
+
+- **gpio-esp32p4** exports `/dev/gpiochip0` (0–31) and
+  `/dev/gpiochip1` (32–56).
+- **ESP-Hosted** on Function EV is SDIO slot 1. The C6 must run
+  ESP-Hosted slave firmware (factory image on Function EV). `wlan0`
+  appears when the SDIO function enumerates.
+- Bootargs are **not** forced: the linux-loader writes `loader.cfg`
+  `append` into `/chosen/bootargs`. Keep `ipv6.disable=1` (why2025:
+  IPv6 `rs_timer` hung `wlan0 up`).
