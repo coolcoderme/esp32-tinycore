@@ -44,4 +44,18 @@ menu "Linux loader"
         help
             Function EV Board ties VDDPST_5 / SD_VREF to LDO_VO4 (channel 4).
 
+    config SDBOOT_C6_RESET_GPIO
+        int "ESP32-C6 EN / CHIP_PU GPIO (0 = skip kick)"
+        default 54
+        help
+            Function EV Board ties C6 EN to P4 GPIO 54. The loader pulses
+            this so ESP-Hosted slave firmware is running before Linux
+            probes SDIO slot 1 (CLK=18 CMD=19 D0–D3=14–17).
+
+    config SDBOOT_C6_RESET_ACTIVE_LOW
+        bool "C6 reset line is active-low"
+        default n
+        help
+            Function EV CHIP_PU/EN is active-high (leave this off).
+
 endmenu

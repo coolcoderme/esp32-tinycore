@@ -54,6 +54,8 @@
 	aliases {
 		serial0 = &uart0;
 		mmc0 = &sdmmc;
+		gpio0 = &gpio0;
+		gpio1 = &gpio1;
 	};
 
 	chosen {
@@ -89,6 +91,50 @@
 			reg = <0x500ca000 0x1000>;
 			interrupts-extended = <&clic0 18 31 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&xtal_clk>;
+			status = "okay";
+		};
+
+		/*
+		 * Two banks share MMIO 0x500E0000 (why2025 gpio-esp32p4).
+		 * Bank 0: GPIO 0–31. Bank 1: GPIO 32–56.
+		 * IRQ is optional; omit until the P4 port maps ETS_GPIO_INTR.
+		 */
+		gpio0: gpio@500e0000 {
+			compatible = "espressif,esp32p4-gpio";
+			reg = <0x500e0000 0x1000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			espressif,bank-id = <0>;
+			gpio-line-names =
+				"GPIO0", "GPIO1", "GPIO2", "GPIO3",
+				"GPIO4", "GPIO5", "GPIO6", "GPIO7",
+				"GPIO8", "GPIO9", "GPIO10", "GPIO11",
+				"GPIO12", "GPIO13",
+				"C6_SDIO_D0", "C6_SDIO_D1",
+				"C6_SDIO_D2", "C6_SDIO_D3",
+				"C6_SDIO_CLK", "C6_SDIO_CMD",
+				"GPIO20", "GPIO21", "GPIO22", "GPIO23",
+				"GPIO24", "GPIO25", "GPIO26", "GPIO27",
+				"GPIO28", "GPIO29", "GPIO30", "GPIO31";
+			status = "okay";
+		};
+
+		gpio1: gpio@500e1000 {
+			compatible = "espressif,esp32p4-gpio";
+			reg = <0x500e0000 0x1000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			espressif,bank-id = <1>;
+			gpio-line-names =
+				"GPIO32", "GPIO33", "GPIO34",
+				"BOOT_STRAP", "STRAP",
+				"UART0_TX", "UART0_RX",
+				"SD_D0", "SD_D1", "SD_D2", "SD_D3",
+				"SD_CLK", "SD_CMD",
+				"GPIO45", "GPIO46", "GPIO47",
+				"GPIO48", "GPIO49", "GPIO50", "GPIO51",
+				"GPIO52", "GPIO53", "C6_EN",
+				"GPIO55", "GPIO56";
 			status = "okay";
 		};
 
@@ -130,6 +176,22 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
+
+			/* Slot 0 = onboard microSD (this node). */
+
+			/*
+			 * Slot 1 = ESP32-C6 ESP-Hosted (Wi-Fi / BT).
+			 * Pins are on the GPIO matrix: CLK=18 CMD=19 D0–D3=14–17.
+			 * The linux-loader pulses GPIO 54 (C6 EN) before jump.
+			 * Needs an ESP-Hosted / dw_mmc slot-1 binding from the
+			 * P4 kernel port (see linux/patches/README.md).
+			 */
+			c6_sdio: wifi@1 {
+				reg = <1>;
+				compatible = "espressif,esp-hosted-mcu";
+				reset-gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>; /* GPIO 54 */
+				status = "okay";
+			};
 		};
 	};
 };

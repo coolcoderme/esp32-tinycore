@@ -12,8 +12,8 @@ in [why2025-linux](https://github.com/mrbreaker/why2025-linux) (Linux
 6.18 LTS + an ESP-IDF boot shim). Use that patch series (or an
 equivalent P4 kernel) as the base, then add our DTS:
 
-- `dts/esp32p4-microcore.dts` — UART0, SYSTIMER, SDMMC slot 0, 64 MB
-  memory node with placeholders the loader patches
+- `dts/esp32p4-microcore.dts` — UART0, SYSTIMER, SDMMC slot 0, GPIO
+  banks, C6 ESP-Hosted child node, 64 MB memory placeholders
 - `dts/esp32p4-microcore-standalone.dts` — same placeholders, no
   kernel includes; this is what `image/mkimg.py` compiles for the SD
   card until Buildroot produces a real `esp32p4.dtb`
@@ -29,7 +29,14 @@ See `linux/microcore.config`. In particular:
 - `CONFIG_BLK_DEV_INITRD=y` and `CONFIG_RD_GZIP=y` (`core.gz`)
 - VFAT, `dw_mmc`, squashfs, tmpfs, loop (for `.tcz`)
 - `CONFIG_DEVTMPFS=y`
+- `CONFIG_GPIO_ESP32P4=y` (why2025 `gpio-esp32p4` patch) plus
+  `CONFIG_GPIO_SYSFS` / `CONFIG_GPIO_CDEV`
+- `CONFIG_NET` / `CONFIG_INET` / `CONFIG_CFG80211` and the P4 port's
+  ESP-Hosted host driver so `wlan0` appears
 - FLAT or static uClibc/musl NOMMU userland
+
+Wi-Fi and SSH add size. Prefer 64 MB PSRAM; keep `core.gz` small on
+32 MB boards (`mkimg` still enforces a 12 MiB free-RAM floor).
 
 ## Buildroot
 

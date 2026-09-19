@@ -1,0 +1,95 @@
+#!/bin/sh
+# gpio — drive ESP32-P4 pins from MicroCore (sysfs or libgpiod).
+# Usage:
+#   gpio list
+#   gpio in  <n>
+#   gpio out <n>
+#   gpio get <n>
+#   gpio set <n> 0|1
+set -eu
+
+SYS=/sys/class/gpio
+CHIP=${GPIOCHIP:-gpiochip0}
+
+reserved() {
+	n=$1
+	# SD card, C6 SDIO, UART0, boot straps, C6 EN
+	case "$n" in
+		14|15|16|17|18|19|35|36|37|38|39|40|41|42|43|44|54)
+			echo "gpio: warning GPIO $n is reserved (SD/C6/UART/strap)" >&2
+			;;
+	esac
+}
+
+export_sys() {
+	n=$1
+	if [ ! -d "$SYS/gpio$n" ]; then
+		echo "$n" > "$SYS/export" 2>/dev/null || return 1
+	fi
+	return 0
+}
+
+cmd=${1:-help}
+if [ $# -gt 0 ]; then
+	shift
+fi
+
+case "$cmd" in
+	list)
+		echo "gpiochips:"
+		ls -d /dev/gpiochip* 2>/dev/null || echo "  (none — need CONFIG_GPIO_CDEV)"
+		echo "sysfs:"
+		if [ -d "$SYS" ]; then
+			ls -d "$SYS"/gpio* 2>/dev/null || echo "  (none exported)"
+		else
+			echo "  (no $SYS — need CONFIG_GPIO_SYSFS)"
+		fi
+		echo "reserved: 14-19 C6 SDIO, 35-36 strap, 37-38 UART0, 39-44 SD, 54 C6 EN"
+		;;
+	in|input)
+		n=${1:?gpio in <n>}
+		reserved "$n"
+		if command -v gpioget >/dev/null 2>&1 && [ -e "/dev/$CHIP" ]; then
+			echo "direction=in (libgpiod $CHIP)"
+			exit 0
+		fi
+		export_sys "$n" || { echo "gpio: export $n failed" >&2; exit 1; }
+		echo in > "$SYS/gpio$n/direction"
+		;;
+	out|output)
+		n=${1:?gpio out <n>}
+		reserved "$n"
+		export_sys "$n" || { echo "gpio: export $n failed" >&2; exit 1; }
+		echo out > "$SYS/gpio$n/direction"
+		;;
+	get)
+		n=${1:?gpio get <n>}
+		if command -v gpioget >/dev/null 2>&1 && [ -e "/dev/$CHIP" ]; then
+			gpioget "$CHIP" "$n"
+			exit 0
+		fi
+		export_sys "$n" || { echo "gpio: export $n failed" >&2; exit 1; }
+		cat "$SYS/gpio$n/value"
+		;;
+	set)
+		n=${1:?gpio set <n> 0|1}
+		v=${2:?gpio set <n> 0|1}
+		reserved "$n"
+		if command -v gpioset >/dev/null 2>&1 && [ -e "/dev/$CHIP" ]; then
+			gpioset "$CHIP" "$n=$v"
+			exit 0
+		fi
+		export_sys "$n" || { echo "gpio: export $n failed" >&2; exit 1; }
+		echo out > "$SYS/gpio$n/direction"
+		echo "$v" > "$SYS/gpio$n/value"
+		;;
+	help|-h|--help)
+		echo "usage: gpio list|in <n>|out <n>|get <n>|set <n> 0|1"
+		echo "Prefer unused header pins (0-5, 20-27). See docs/PERIPHERALS.md."
+		exit 0
+		;;
+	*)
+		echo "usage: gpio list|in <n>|out <n>|get <n>|set <n> 0|1" >&2
+		exit 2
+		;;
+esac

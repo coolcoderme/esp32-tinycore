@@ -1,13 +1,11 @@
 # Plan: ESP32-P4 bootloader for MicroCore Linux on SD
 
-**Implementation status:** Phases 0–4 of this plan are in the tree: the
-linux-loader ESP-IDF project, portable MBR/GPT/FAT/cfg/DTB/layout
-libraries with host tests (`make test`, ASan via `make test-asan`), a
-Rufus/Etcher FAT32 image builder (`image/mkimg.py` / `image/mkimg.sh`),
-MicroCore `/init` + `tce-load` / `tce-ab` overlay, device trees, and
-CI. A real RV32 kernel still needs an ESP32-P4 Linux port (see
-`linux/README.md`); `mkimg.py` packs a placeholder Image until then.
-Phase 5 polish (ISO9660 reader, 64 MB-only image budget) is optional.
+**Implementation status:** Phases 0–4 and 6 are in the tree: linux-loader,
+host-tested parsers, Rufus/Etcher image, MicroCore overlay, GPIO/Wi-Fi/SSH
+userspace (`gpio`, `wifi-setup`, `ssh-setup`, C6 EN kick), and CI.
+A real RV32 kernel (GPIO driver + ESP-Hosted) is still required for
+`wlan0` and `/dev/gpiochip` — see `linux/README.md` and
+`docs/PERIPHERALS.md`.
 
 This document is the implementation plan for `esp32-tinycore`. It is
 intentionally concrete: what lives in flash, what lives on the SD card,
@@ -375,6 +373,13 @@ README.md                   user-facing summary
 - Optional ISO9660 reader.
 - Watchdog heartbeat on loader failure.
 
+### Phase 6 — GPIO, Wi-Fi, SSH
+
+- GPIO controller in DTS + `gpio` helper (`sysfs` / libgpiod).
+- linux-loader pulses C6 EN (GPIO 54); `wifi-setup` + `opt/wifi.conf`.
+- dropbear via `ssh-setup`, keys on the FAT volume.
+- Success: toggle a header pin; associate and `ssh tc@wlan0`.
+
 ## Testing
 
 No ESP32-P4 is assumed in CI. Split tests:
@@ -384,7 +389,8 @@ No ESP32-P4 is assumed in CI. Split tests:
 2. **Image tests**: `mkimg.sh` output has the expected partitions and
    files (`mtools`/`sfdisk`/`file`).
 3. **Hardware** (manual / later CI): PSRAM size banner, SD file list,
-   kernel banner, login, persist a file on the card.
+   kernel banner, login, persist a file on the card, `gpio list`,
+   Wi-Fi associate, SSH key login.
 
 Until hardware is attached, Phase 0–3 must still compile and the
 image/parser tests must pass.
@@ -397,7 +403,8 @@ image/parser tests must pass.
 - X11 / TinyCore GUI
 - eMMC, USB mass-storage boot
 - Secure boot / flash encryption (leave IDF defaults off)
-- Wi-Fi via ESP32-C6
+- Bluetooth / X11 on the C6 (Wi-Fi + SSH are supported; see
+  `docs/PERIPHERALS.md`)
 
 ## Risks
 

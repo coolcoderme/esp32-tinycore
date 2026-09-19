@@ -46,6 +46,12 @@ Placeholder `vmlinuz` / `core.gz` in `make img` prove the SD layout and
 the RISC-V Image magic the loader checks. They will not print a login
 prompt until a P4 kernel is packed.
 
+## GPIO / Wi-Fi / SSH
+
+See [PERIPHERALS.md](PERIPHERALS.md). Buildroot defconfig now pulls in
+libgpiod, wpa_supplicant, iw, and dropbear. The loader pulses C6 EN
+(GPIO 54) so ESP-Hosted can come up after the jump.
+
 ## Serial
 
 ```sh

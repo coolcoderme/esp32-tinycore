@@ -18,6 +18,7 @@ img $(IMG): dts/esp32p4-microcore-standalone.dts image/mkimg.py
 test: tests/test_sdboot $(DTB) $(IMG)
 	./tests/test_sdboot $(DTB) $(IMG)
 	$(PYTHON) tests/test_image.py $(IMG)
+	$(PYTHON) tests/test_netconf.py
 
 test-asan: $(DTB) $(IMG)
 	$(MAKE) -C tests clean

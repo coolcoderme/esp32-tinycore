@@ -45,6 +45,16 @@ static const sdboot_board_t k_board = {
     .ldo_chan = 4,
 #endif
     .internal_pullup = 1,
+#ifdef CONFIG_SDBOOT_C6_RESET_GPIO
+    .c6_reset_gpio = CONFIG_SDBOOT_C6_RESET_GPIO,
+#else
+    .c6_reset_gpio = 54,
+#endif
+#ifdef CONFIG_SDBOOT_C6_RESET_ACTIVE_LOW
+    .c6_reset_active_high = 0,
+#else
+    .c6_reset_active_high = 1,
+#endif
 };
 
 const sdboot_board_t *sdboot_board(void)

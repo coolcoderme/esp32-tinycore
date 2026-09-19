@@ -120,7 +120,12 @@ Layout:
   /boot   kernel, core.gz, device tree, loader.cfg
   /tce    squashfs extensions (onboot.lst)
   /home   persistent extra storage (visible from Windows)
-  /opt    optional persist
+  /opt    wifi.conf, dropbear host keys
+
+GPIO:  gpio list | gpio set 5 1   (avoid 14-19, 35-44, 54)
+Wi-Fi: copy opt/wifi.conf.example to opt/wifi.conf (ssid=/psk=)
+SSH:   copy a pubkey to home/tc/.ssh/authorized_keys, then
+       ssh tc@<wlan0-ip>  (key-only)
 
 Drop files here from your PC; Linux mounts this same FAT volume at /mnt/sd.
 """,
@@ -203,6 +208,13 @@ def main() -> int:
         make_readme(readme)
         onboot.write_text("# extensions to load at boot, one .tcz name per line\n", encoding="utf-8")
         hello.write_text("persistent extra storage on the MicroCore SD card\n", encoding="utf-8")
+        wifi_ex = REPO / "image" / "wifi.conf.example"
+        auth_ex = REPO / "image" / "authorized_keys.example"
+        dropbear_note = td_path / "dropbear.txt"
+        dropbear_note.write_text(
+            "Host keys are generated on first boot and saved here.\n",
+            encoding="utf-8",
+        )
 
         # Sparse disk image + MBR.
         if out.exists():
@@ -231,7 +243,15 @@ def main() -> int:
         )
 
         img = mtools_img(out)
-        for d in ("::/boot", "::/tce", "::/home", "::/opt"):
+        for d in (
+            "::/boot",
+            "::/tce",
+            "::/home",
+            "::/home/tc",
+            "::/home/tc/.ssh",
+            "::/opt",
+            "::/opt/dropbear",
+        ):
             mtools(["mmd", "-i", img, d], out)
         copies = [
             (loader_cfg, "::/boot/loader.cfg"),
@@ -241,6 +261,9 @@ def main() -> int:
             (readme, "::/boot/README.TXT"),
             (onboot, "::/tce/onboot.lst"),
             (hello, "::/home/hello.txt"),
+            (wifi_ex, "::/opt/wifi.conf.example"),
+            (auth_ex, "::/home/tc/.ssh/authorized_keys.example"),
+            (dropbear_note, "::/opt/dropbear/README.TXT"),
         ]
         for src, dest in copies:
             mtools(["mcopy", "-i", img, str(src), dest], out)

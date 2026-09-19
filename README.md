@@ -31,7 +31,8 @@ tools/flash-p4.sh /dev/ttyUSB0
 Then write `MicroCore-ESP32P4.img` to a microSD card (Rufus: **DD /
 Image mode**), insert it, reset. Serial is **115200 8N1** on UART0.
 
-Full steps: [docs/FLASHING.md](docs/FLASHING.md). Architecture:
+Full steps: [docs/FLASHING.md](docs/FLASHING.md). GPIO / Wi-Fi / SSH:
+[docs/PERIPHERALS.md](docs/PERIPHERALS.md). Architecture:
 [PLAN.md](PLAN.md).
 
 ## What is in the tree
@@ -42,7 +43,7 @@ Full steps: [docs/FLASHING.md](docs/FLASHING.md). Architecture:
 | `bootloader/lib/` | Portable MBR/GPT/FAT/cfg/DTB/layout (host-tested) |
 | `image/mkimg.py` | Builds the MBR+FAT32 `.img` (`image/mkimg.sh` wraps it) |
 | `dts/` | Device trees (standalone + kernel) |
-| `rootfs/overlay/` | MicroCore `/init`, `tce-load` / `tce-ab`, persist `/home` |
+| `rootfs/overlay/` | `/init`, `tce-*`, `gpio`, `wifi-setup`, `ssh-setup` |
 | `linux/` | Kernel config fragment + how to use a P4 kernel port |
 | `tests/` | Host unit tests + image checks |
 | `tools/` | `flash-p4.sh`, `console.sh`, `expand-fat.sh` |
@@ -56,6 +57,7 @@ and a tiny `core.gz`. Replace them with a real Buildroot `Image` +
 
 - ESP32-P4 with onboard SDMMC microSD (default: Function EV pins
   GPIO 39–44, LDO 4)
+- ESP32-C6 on Function EV (SDIO 14–19, EN GPIO 54) for Wi-Fi
 - 64 MB external PSRAM preferred (32 MB works if `core.gz` stays small)
 
 ## License

@@ -79,6 +79,11 @@ Windows will see a drive named **MICROCORE**. You can drop files in
 `home\` (persistent extra storage) or `tce\` (`.tcz` extensions listed
 in `tce\onboot.lst`). Do not delete `boot\`.
 
+Wi-Fi: copy `opt\wifi.conf.example` to `opt\wifi.conf` and set
+`ssid=` / `psk=`. SSH: put an ed25519 public key in
+`home\tc\.ssh\authorized_keys` (or `home\tc\ssh\authorized_keys`).
+Details: [PERIPHERALS.md](PERIPHERALS.md).
+
 If the card is larger than the 256 MiB image, leftover space is
 unpartitioned. Expand with Windows Disk Management or:
 
