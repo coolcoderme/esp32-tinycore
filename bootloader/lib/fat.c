@@ -330,7 +330,7 @@ static int scan_dir(sdboot_fat_t *fs, uint32_t dir_cluster, const char *want,
         return rc;
 
     for (;;) {
-        uint8_t *ent;
+        uint8_t *ent = NULL;
         uint8_t attr;
         sdboot_fat_stat_t st;
         int got;
@@ -338,7 +338,7 @@ static int scan_dir(sdboot_fat_t *fs, uint32_t dir_cluster, const char *want,
         got = dir_iter_next(fs, &it, &ent);
         if (got < 0)
             return got;
-        if (got == 0)
+        if (got == 0 || !ent)
             break;
         if (ent[0] == 0x00)
             break;
